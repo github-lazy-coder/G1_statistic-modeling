@@ -1,0 +1,388 @@
+library(readxl)     # 读excel文件 
+library(tidyverse) 
+library(corrplot)
+library(glmnet)     # LASSO
+library(leaps)      # LASSO
+
+# 读取数据
+setwd("D:/文档/HSUHK/AMS6002 Statistical Modeling/group project")
+rb_Data <- read_xlsx('Residential-Building-Data-Set.xlsx', skip = 1)
+rb_Data <- data.frame(rb_Data)
+
+# 删除缺失值
+rb_Data <- rb_Data %>% drop_na() %>% unique()
+summary(rb_Data)
+
+# 对售价进行LASSO分析
+
+# 拆分成5个表
+# 前7列(V.2-V.8)个两个因变量作为基础列
+base_data <- rb_Data[,6:12]
+base_data <- cbind(base_data, rb_Data[,108])
+colnames(base_data)[8] <- c("V.9")
+# 将每个lag拆分成单独的表
+lag1_data <- rb_Data[,13:31]
+lag2_data <- rb_Data[,32:50]
+lag3_data <- rb_Data[,51:69]
+lag4_data <- rb_Data[,70:88]
+lag5_data <- rb_Data[,89:107]
+# 重命名列名
+colnames(lag1_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag2_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag3_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag4_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag5_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+# 合并成5个数据集
+lag1_data <- cbind(base_data, lag1_data)
+lag2_data <- cbind(base_data, lag2_data)
+lag3_data <- cbind(base_data, lag3_data)
+lag4_data <- cbind(base_data, lag4_data)
+lag5_data <- cbind(base_data, lag5_data)
+
+# 对第1个表进行分析
+# 将第1个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag1_data),0.7*nrow(lag1_data),replace=F)
+train_data = lag1_data[train_indices,]
+test_data = lag1_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.20,V.21,V.22,V.25 columns
+LASSO_sales_model_1 = lm(V.9 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.11+V.12+V.13+V.14+V.15+V.16+V.17+V.18+V.19+V.23+V.24+V.26+V.27+V.28+V.29, train_data)
+predict_sales_LASSO_1 = predict(LASSO_sales_model_1, test_data)
+summary(predict_sales_LASSO_1)
+
+rmse_sales_1 = sqrt(mean((test_data$V.9 - predict_sales_LASSO_1)^2))
+rmse_sales_1
+
+# 174.5394
+
+# 对第2个表进行分析
+# 将第2个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag2_data),0.7*nrow(lag2_data),replace=F)
+train_data = lag2_data[train_indices,]
+test_data = lag2_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.11 column
+LASSO_sales_model_2 = lm(V.9 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.12+V.13+V.14+V.15+V.16+V.17+V.18+V.19+V.20+V.21+V.22+V.23+V.24+V.25+V.26+V.27+V.28+V.29, train_data)
+predict_sales_LASSO_2 = predict(LASSO_sales_model_2, test_data)
+summary(predict_sales_LASSO_2)
+
+rmse_sales_2 = sqrt(mean((test_data$V.9 - predict_sales_LASSO_2)^2))
+rmse_sales_2
+# 168.7033
+
+# 对第3个表进行分析
+# 将第3个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag3_data),0.7*nrow(lag3_data),replace=F)
+train_data = lag3_data[train_indices,]
+test_data = lag3_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.3,V.4,V.12,V.13,V.14,V.21,V.22,V.25,V.26,V.27 columns
+LASSO_sales_model_3 = lm(V.9 ~ V.2+V.5+V.6+V.7+V.8+V.11+V.15+V.16+V.17+V.18+V.19+V.20+V.23+V.24+V.28+V.29, train_data)
+predict_sales_LASSO_3 = predict(LASSO_sales_model_3, test_data)
+summary(predict_sales_LASSO_3)
+
+rmse_sales_3 = sqrt(mean((test_data$V.9 - predict_sales_LASSO_3)^2))
+rmse_sales_3
+# 187.2429
+
+# 对第4个表进行分析
+# 将第4个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag4_data),0.7*nrow(lag4_data),replace=F)
+train_data = lag4_data[train_indices,]
+test_data = lag4_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.4,V12,V.13,V.16,V.18,V.22 column
+LASSO_sales_model_4 = lm(V.9 ~ V.2+V.3+V.5+V.6+V.7+V.8+V.11+V.14+V.15+V.17+V.19+V.20+V.21+V.23+V.24+V.25+V.26+V.27+V.28+V.29, train_data)
+predict_sales_LASSO_4 = predict(LASSO_sales_model_4, test_data)
+summary(predict_sales_LASSO_4)
+
+rmse_sales_4 = sqrt(mean((test_data$V.9 - predict_sales_LASSO_4)^2))
+rmse_sales_4
+# 165.7134
+
+# 对第5个表进行分析
+# 将第5个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag5_data),0.7*nrow(lag5_data),replace=F)
+train_data = lag5_data[train_indices,]
+test_data = lag5_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.3,V.12,V.13,V.16,V.19,V.22,V.24,V.25,V.27,V.29 columns
+LASSO_sales_model_5 = lm(V.9 ~ V.2+V.4+V.5+V.6+V.7+V.8+V.11+V.14+V.15+V.17+V.18+V.20+V.21+V.23+V.26+V.28+V.29, train_data)
+predict_sales_LASSO_5 = predict(LASSO_sales_model_5, test_data)
+summary(predict_sales_LASSO_5)
+
+rmse_sales_5 = sqrt(mean((test_data$V.9 - predict_sales_LASSO_5)^2))
+rmse_sales_5
+# 167.5763
+
+# 对平均值表进行分析
+# 制作平均值表
+lag_avg_1_data <- rb_Data[,13:31]
+lag_avg_2_data <- rb_Data[,32:50]
+lag_avg_3_data <- rb_Data[,51:69]
+lag_avg_4_data <- rb_Data[,70:88]
+lag_avg_5_data <- rb_Data[,89:107]
+lag_avg <- c((lag_avg_1_data+lag_avg_2_data+lag_avg_3_data+lag_avg_4_data+lag_avg_5_data)/5)
+lag_avg <- cbind(base_data, lag_avg)
+lag_avg <- data.frame(lag_avg)
+colnames(lag_avg) <- c("V.2", "V.3", "V.4", "V.5", "V.6", "V.7", "V.8", "V.9", "V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+
+set.seed(12345)
+train_indices = sample(1:nrow(lag_avg),0.7*nrow(lag_avg),replace=F)
+train_data = lag_avg[train_indices,]
+test_data = lag_avg[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.3,V.4,V.12,V.13,V.14,V.15,V.21,V.22,V.24,V.25,V.26,V.27,V.29 columns
+LASSO_sales_avg_model = lm(V.9 ~ V.2+V.5+V.6+V.7+V.8+V.11+V.16+V.17+V.18+V.19+V.20+V.23+V.27+V.28,train_data)
+predict_sales_avg_LASSO = predict(LASSO_sales_avg_model, test_data)
+summary(predict_sales_avg_LASSO)
+
+rmse_sales_avg = sqrt(mean((test_data$V.9 - predict_sales_avg_LASSO)^2))
+rmse_sales_avg
+# 168.111
+
+################################################### cost LASSO ###################################################################################
+
+# 对成本进行LASSO分析
+
+# 对第1个表进行分析
+# 将第1个数据集拆分数据集为训练集和测试集
+# 将表中V.9改成V.10
+lag1_data <- cbind(lag1_data[,-8], rb_Data[,109])
+# 重命名列名
+colnames(lag1_data)[27] <- c("V.10")
+set.seed(12345)
+train_indices = sample(1:nrow(lag1_data),0.7*nrow(lag1_data),replace=F)
+train_data = lag1_data[train_indices,]
+test_data = lag1_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.10~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.10
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO all columns selected
+LASSO_cost_model_1 = lm(V.10 ~ ., train_data)
+predict_cost_LASSO_1 = predict(LASSO_cost_model_1, test_data)
+summary(predict_cost_LASSO_1)
+
+rmse_cost_1 = sqrt(mean((test_data$V.10 - predict_cost_LASSO_1)^2))
+rmse_cost_1
+# 40.18401
+
+# 对第2个表进行分析
+# 将第2个数据集拆分数据集为训练集和测试集
+# 将表中V.9改成V.10
+lag2_data <- cbind(lag2_data[,-8], rb_Data[,109])
+# 重命名列名
+colnames(lag2_data)[27] <- c("V.10")
+set.seed(12345)
+train_indices = sample(1:nrow(lag2_data),0.7*nrow(lag2_data),replace=F)
+train_data = lag2_data[train_indices,]
+test_data = lag2_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.10~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.10
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.22,V.25 column
+LASSO_cost_model_2 = lm(V.10 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.11+V.12+V.13+V.14+V.15+V.16+V.17+V.18+V.19+V.20+V.21+V.23+V.24+V.26+V.27+V.28+V.29, train_data)
+predict_cost_LASSO_2 = predict(LASSO_cost_model_2, test_data)
+summary(predict_cost_LASSO_2)
+
+rmse_cost_2 = sqrt(mean((test_data$V.10 - predict_cost_LASSO_2)^2))
+rmse_cost_2
+# 39.44415
+
+# 对第3个表进行分析
+# 将第3个数据集拆分数据集为训练集和测试集
+# 将表中V.9改成V.10
+lag3_data <- cbind(lag3_data[,-8], rb_Data[,109])
+# 重命名列名
+colnames(lag3_data)[27] <- c("V.10")
+set.seed(12345)
+train_indices = sample(1:nrow(lag3_data),0.7*nrow(lag3_data),replace=F)
+train_data = lag3_data[train_indices,]
+test_data = lag3_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.10~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.10
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.16,V.21,V.25,V.26 columns
+LASSO_cost_model_3 = lm(V.10 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.11+V.12+V.13+V.14+V.15+V.17+V.18+V.19+V.20+V.22+V.23+V.24+V.27+V.28+V.29, train_data)
+predict_cost_LASSO_3 = predict(LASSO_cost_model_3, test_data)
+summary(predict_cost_LASSO_3)
+
+rmse_cost_3 = sqrt(mean((test_data$V.10 - predict_cost_LASSO_3)^2))
+rmse_cost_3
+# 40.52475
+
+# 对第4个表进行分析
+# 将第4个数据集拆分数据集为训练集和测试集
+# 将表中V.9改成V.10
+lag4_data <- cbind(lag4_data[,-8], rb_Data[,109])
+# 重命名列名
+colnames(lag4_data)[27] <- c("V.10")
+set.seed(12345)
+train_indices = sample(1:nrow(lag4_data),0.7*nrow(lag4_data),replace=F)
+train_data = lag4_data[train_indices,]
+test_data = lag4_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.10~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.10
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.16,V.26 columns
+LASSO_cost_model_4 = lm(V.10 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.11+V.12+V.13+V.14+V.15+V.16+V.17+V.18+V.19+V.20+V.21+V.22+V.23+V.24+V.25+V.27+V.28+V.29, train_data)
+predict_cost_LASSO_4 = predict(LASSO_cost_model_4, test_data)
+summary(predict_cost_LASSO_4)
+
+rmse_cost_4 = sqrt(mean((test_data$V.10 - predict_cost_LASSO_4)^2))
+rmse_cost_4
+# 38.59629
+
+# 对第5个表进行分析
+# 将第5个数据集拆分数据集为训练集和测试集
+# 将表中V.9改成V.10
+lag5_data <- cbind(lag5_data[,-8], rb_Data[,109])
+# 重命名列名
+colnames(lag5_data)[27] <- c("V.10")
+set.seed(12345)
+train_indices = sample(1:nrow(lag5_data),0.7*nrow(lag5_data),replace=F)
+train_data = lag5_data[train_indices,]
+test_data = lag5_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.10~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.10
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.6,V.8,V.12 columns
+LASSO_cost_model_5 = lm(V.10 ~ V.2+V.3+V.4+V.5+V.7+V.11+V.13+V.14+V.15+V.16+V.17+V.19+V.20+V.21+V.23+V.24+V.25+V.26+V.27+V.28+V.29, train_data)
+predict_cost_LASSO_5 = predict(LASSO_cost_model_5, test_data)
+summary(predict_cost_LASSO_5)
+
+rmse_cost_5 = sqrt(mean((test_data$V.10 - predict_cost_LASSO_5)^2))
+rmse_cost_5
+# 38.7192
+
+# 对平均值表进行分析
+# 制作平均值表
+# 将表中V.9改成V.10
+lag_avg <- cbind(lag_avg[,-8], rb_Data[,109])
+# 重命名列名
+colnames(lag_avg)[27] <- c("V.10")
+set.seed(12345)
+train_indices = sample(1:nrow(lag_avg),0.7*nrow(lag_avg),replace=F)
+train_data = lag_avg[train_indices,]
+test_data = lag_avg[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.10~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.10
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.16,V.25 columns
+LASSO_cost_model = lm(V.10 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.11+V.12+V.13+V.14+V.15+V.17+V.18+V.19+V.20+V.21+V.22+V.23+V.24+V.26+V.27+V.28+V.29,train_data)
+predict_cost_LASSO = predict(LASSO_cost_model, test_data)
+summary(predict_cost_LASSO)
+
+rmse_cost_avg = sqrt(mean((test_data$V.10 - predict_cost_LASSO)^2))
+rmse_cost_avg
+# 39.62963
+
+# 售价均方根差对比
+rmse_sales_arr <- c(rmse_sales_1,rmse_sales_2,rmse_sales_3,rmse_sales_4,rmse_sales_5,rmse_sales_avg)
+rmse_sales_arr
+# 174.5394 168.7033 187.2429 165.7134 167.5763 168.1110
+# 成本均方根差对比
+rmse_cost_arr <- c(rmse_cost_1,rmse_cost_2,rmse_cost_3,rmse_cost_4,rmse_cost_5,rmse_cost_avg)
+rmse_cost_arr
+# 40.18401 39.44415 40.52475 38.59629 38.71920 39.62963
