@@ -1,0 +1,203 @@
+library(readxl)     # 读excel文件 
+library(tidyverse) 
+library(corrplot)
+library(leaps)      # LASSO
+
+# 读取数据
+setwd("D:/文档/HSUHK/AMS6002 Statistical Modeling/group project")
+rb_Data <- read_xlsx('Residential-Building-Data-Set.xlsx', skip = 1)
+rb_Data <- data.frame(rb_Data)
+
+# 删除缺失值
+rb_Data <- rb_Data %>% drop_na() %>% unique()
+summary(rb_Data)
+
+# 拆分成5个表
+# 前12列个两个因变量作为基础列
+base_data <- rb_Data[,6:12]
+base_data <- cbind(base_data, rb_Data[,108])
+colnames(base_data)[8] <- c("V.9")
+#base_data <- cbind(base_data, rb_Data[,109])
+#colnames(base_data)[8] <- c("V.10")
+# 将每个lag拆分成单独的表
+lag1_data <- rb_Data[,13:31]
+lag2_data <- rb_Data[,32:50]
+lag3_data <- rb_Data[,51:69]
+lag4_data <- rb_Data[,70:88]
+lag5_data <- rb_Data[,89:107]
+# 重命名列名
+colnames(lag1_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag2_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag3_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag4_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+colnames(lag5_data) <- c("V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+# 合并成5个数据集
+lag1_data <- cbind(base_data, lag1_data)
+lag2_data <- cbind(base_data, lag2_data)
+lag3_data <- cbind(base_data, lag3_data)
+lag4_data <- cbind(base_data, lag4_data)
+lag5_data <- cbind(base_data, lag5_data)
+
+# 对第1个表进行分析
+# 将第1个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag1_data),0.7*nrow(lag1_data),replace=F)
+train_data_1 = lag1_data[train_indices,]
+test_data_1 = lag1_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data_1)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data_1$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.20,V.21,V.22,V.25 columns
+LASSO_model_1 = lm(V.9 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.11+V.12+V.13+V.14+V.15+V.16+V.17+V.18+V.19+V.23+V.24+V.26+V.27+V.28+V.29, train_data_1)
+predict_LASSO_1 = predict(LASSO_model_1, test_data_1)
+summary(predict_LASSO_1)
+
+rmse_1 = sqrt(mean((test_data_1$V.9 - predict_LASSO_1)^2))
+rmse_1
+
+# 174.5394
+
+# 对第2个表进行分析
+# 将第2个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag2_data),0.7*nrow(lag2_data),replace=F)
+train_data_2 = lag2_data[train_indices,]
+test_data_2 = lag2_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data_2)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data_2$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.11 column
+LASSO_model_2 = lm(V.9 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.12+V.13+V.14+V.15+V.16+V.17+V.18+V.19+V.20+V.21+V.22+V.23+V.24+V.25+V.26+V.27+V.28+V.29, train_data_2)
+summary(LASSO_model_2)
+predict_LASSO_2 = predict(LASSO_model_2, test_data_2)
+summary(predict_LASSO_2)
+
+rmse_2 = sqrt(mean((test_data_2$V.9 - predict_LASSO_2)^2))
+rmse_2
+# 刘通 168.7033
+
+# 对第3个表进行分析
+# 将第3个数据集拆分数据集为训练集和测试集
+set.seed(12345)
+train_indices = sample(1:nrow(lag3_data),0.7*nrow(lag3_data),replace=F)
+train_data_3 = lag3_data[train_indices,]
+test_data_3 = lag3_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data_3)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data_3$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.3,V.4,V.12,V.13,V.14,V.21,V.22,V.25,V.26,V.27 columns
+LASSO_model_3 = lm(V.9 ~ V.2+V.5+V.6+V.7+V.8+V.11+V.15+V.16+V.17+V.18+V.19+V.20+V.23+V.24+V.28+V.29, train_data_3)
+predict_LASSO_3 = predict(LASSO_model_3, test_data_3)
+summary(predict_LASSO_3)
+
+rmse_3 = sqrt(mean((test_data_3$V.9 - predict_LASSO_3)^2))
+rmse_3
+# 187.2429
+
+# 对第4个表进行分析
+# 将第4个数据集拆分数据集为训练集和测试集
+train_indices = sample(1:nrow(lag4_data),0.7*nrow(lag4_data),replace=F)
+train_data_4 = lag4_data[train_indices,]
+test_data_4 = lag4_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data_4)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data_4$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.22 column
+LASSO_model_4 = lm(V.9 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.11+V.12+V.13+V.14+V.15+V.16+V.17+V.18+V.19+V.20+V.21+V.23+V.24+V.25+V.26+V.27+V.28+V.29, train_data_4)
+predict_LASSO_4 = predict(LASSO_model_4, test_data_4)
+summary(predict_LASSO_4)
+
+rmse_4 = sqrt(mean((test_data_4$V.9 - predict_LASSO_4)^2))
+rmse_4
+# 154.4284
+
+# 对第5个表进行分析
+# 将第5个数据集拆分数据集为训练集和测试集
+train_indices = sample(1:nrow(lag5_data),0.7*nrow(lag5_data),replace=F)
+train_data_5 = lag5_data[train_indices,]
+test_data_5 = lag5_data[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data_5)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data_5$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.11,V.13,V.16,V.18,V.22,V.25 columns
+LASSO_model_5 = lm(V.9 ~ V.2+V.3+V.4+V.5+V.6+V.7+V.8+V.12+V.14+V.15+V.17+V.19+V.20+V.21+V.23+V.24+V.26+V.27+V.28+V.29, train_data_5)
+predict_LASSO_5 = predict(LASSO_model_4, test_data_5)
+summary(predict_LASSO_5)
+
+rmse_5 = sqrt(mean((test_data_5$V.9 - predict_LASSO_5)^2))
+rmse_5
+# 195.0866
+
+# 对平均值表进行分析
+# 制作平均值表
+lag_avg_1_data <- rb_Data[,13:31]
+lag_avg_2_data <- rb_Data[,32:50]
+lag_avg_3_data <- rb_Data[,51:69]
+lag_avg_4_data <- rb_Data[,70:88]
+lag_avg_5_data <- rb_Data[,89:107]
+lag_avg <- c((lag_avg_1_data+lag_avg_2_data+lag_avg_3_data+lag_avg_4_data+lag_avg_5_data)/5)
+lag_avg <- cbind(base_data, lag_avg)
+lag_avg <- data.frame(lag_avg)
+colnames(lag_avg) <- c("V.2", "V.3", "V.4", "V.5", "V.6", "V.7", "V.8", "V.9", "V.11", "V.12", "V.13", "V.14", "V.15", "V.16", "V.17", "V.18", "V.19", "V.20", "V.21", "V.22", "V.23", "V.24", "V.25", "V.26", "V.27", "V.28", "V.29")
+
+set.seed(12345)
+train_indices = sample(1:nrow(lag_avg),0.7*nrow(lag_avg),replace=F)
+train_data = lag_avg[train_indices,]
+test_data = lag_avg[-train_indices,]
+
+# Use cv.glmnet to do LASSO automatically
+x=model.matrix(V.9~ ., train_data)[,-1]       # Get the design matrix. Dummy variables for categorical data are added. The column of ones (corresponding to the intercept term) is removed.
+y=train_data$V.9
+
+cv.out = cv.glmnet(x,y,alpha=1,nfolds = 10)
+bestlam = cv.out$lambda.min
+coef = predict(cv.out ,type="coefficients",s=bestlam)
+coef
+
+## after LASSO drop V.3,V.4,V.12,V.13,V.14,V.15,V.21,V.22,V.24,V.25,V.26,V.27,V.29 columns
+LASSO_model = lm(V.9 ~ V.2+V.5+V.6+V.7+V.8+V.11+V.16+V.17+V.18+V.19+V.20+V.23+V.27+V.28,train_data)
+predict_LASSO = predict(LASSO_model, test_data)
+summary(predict_LASSO)
+
+rmse_avg = sqrt(mean((test_data$V.9 - predict_LASSO)^2))
+rmse_avg
+# 168.111
+
+# 存储均方根差对比
+rmse_arr <- c(rmse_1,rmse_2,rmse_3,rmse_4,rmse_5,rmse_avg)
+rmse_arr
